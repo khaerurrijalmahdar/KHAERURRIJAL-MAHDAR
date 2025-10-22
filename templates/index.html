@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8" />
+    <title>PDAM Meteran Detection</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+    <!-- Font Awesome -->
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+
+    <!-- ======================  STYLE  ====================== -->
+    <style>
+        body {
+            background: linear-gradient(to right, #e0f7fa, #f1f8e9);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+        }
+        h1 { font-weight: 700; color: #00695c; }
+        .card {
+            border: none;
+            border-radius: 1rem;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+            transition: 0.3s;
+        }
+        .card:hover { transform: scale(1.01); }
+        .btn { border-radius: 50px; transition: 0.3s; }
+        .btn-success       { background-color: #43a047; border: none; }
+        .btn-success:hover { background-color: #388e3c; }
+        .btn-primary       { background-color: #0288d1; border: none; }
+        .btn-primary:hover { background-color: #0277bd; }
+        .btn-danger        { background-color: #e53935; border: none; }
+        .btn-danger:hover  { background-color: #d32f2f; }
+        .btn-secondary       { background-color: #6d4c41; border: none; }
+        .btn-secondary:hover { background-color: #5d4037; }
+        .form-control {
+            border-radius: .5rem;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .card-title { font-weight: 600; color: #2e7d32; }
+        .spinner-border { width: 1.5rem; height: 1.5rem; display: none; }
+        .image-preview {
+            max-width: 150px;
+            border-radius: .5rem;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        .form-section-title {
+            margin-bottom: 1rem;
+            color: #00796b;
+            font-weight: 700;
+            border-bottom: 2px solid #80cbc4;
+            padding-bottom: .5rem;
+        }
+        table thead th {
+            position: sticky;
+            top: 0;
+            background: #a5d6a7;
+            z-index: 1;
+            text-align: center;
+        }
+        th, td { vertical-align: middle !important; text-align: center; }
+        label { font-weight: 600; color: #455a64; margin-top: 0.5rem; }
+        input[type="file"] {
+            background-color: #e0f2f1;
+            border: 1px solid #80cbc4;
+        }
+        /* Modal radius */
+        .modal-content           { border-radius: 1rem; }
+        .modal-header.bg-danger,
+        .modal-header.bg-success,
+        .modal-header.bg-secondary {
+            border-top-left-radius: 1rem; border-top-right-radius: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+<div class="container py-5">
+
+    <!-- ===== Heading ===== -->
+    <div class="text-center mb-5">
+        <i class="fas fa-tint fa-2x text-primary mb-2"></i>
+        <h1>PDAM Meteran Detection</h1>
+        <p class="text-muted">Deteksi otomatis angka meteran air</p>
+    </div>
+
+    <!-- ===== Upload Card ===== -->
+    <div class="card mb-4"><div class="card-body">
+        <h5 class="card-title">Upload Gambar Meteran</h5>
+        <div id="uploadStatus" class="text-muted mb-3"></div>
+
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input class="form-control mb-3" type="file" name="image" accept="image/*" required />
+            <div id="imagePreview" class="mb-3"></div>
+
+            <button class="btn btn-success" type="submit">
+                <i class="fas fa-search me-2"></i>
+                <span id="detectText">Deteksi Angka</span>
+                <span class="spinner-border spinner-border-sm ms-2" id="detectSpinner"></span>
+            </button>
+
+            <!-- Result -->
+            <p class="mt-3 fw-bold">
+                Hasil Deteksi: <span id="hasil" class="text-primary"></span>
+            </p>
+            <p id="keterangan" class="text-danger"></p>
+        </form>
+    </div></div>
+
+    <!-- ===== Save Card ===== -->
+    <div class="card mb-4" id="saveDataCard" style="display:none"><div class="card-body">
+        <h5 class="card-title">Simpan Data</h5>
+        <form id="saveDataForm">
+            <label>Nama Pelanggan</label>
+            <input class="form-control" name="nama" required />
+
+            <label>Alamat</label>
+            <input class="form-control" name="alamat" required />
+
+            <label>Tanggal</label>
+            <input class="form-control" type="date" name="tanggal" id="tanggalInput" required />
+
+            <label>Waktu</label>
+            <input class="form-control" type="time" name="waktu" id="waktuInput" required />
+
+            <label>Angka Meteran</label>
+            <input class="form-control" name="angka_meteran" id="angkaMeteran" readonly />
+
+            <input type="hidden" name="gambar_path" id="gambarPath" />
+
+            <button class="btn btn-primary w-100 mt-3" id="btnSave">
+                <span class="spinner-border spinner-border-sm me-2" id="saveSpinner" style="display:none"></span>
+                <i class="fas fa-save me-2"></i>Simpan
+            </button>
+        </form>
+    </div></div>
+
+    <!-- ===== Pencarian ===== -->
+    <form action="{{ url_for('search') }}" class="input-group mb-4">
+        <input class="form-control" name="query" placeholder="Cari data..." value="{{ query or '' }}" />
+        <button class="btn btn-primary"><i class="fas fa-search me-1"></i>Cari</button>
+    </form>
+
+    <!-- ===== Data Table ===== -->
+    <div class="card"><div class="card-body">
+        <h5 class="card-title">Data Pencatatan Meteran</h5>
+        <table class="table table-bordered table-striped">
+            <thead class="table-success">
+            <tr>
+                <th>Nama</th><th>Alamat</th><th>Tanggal</th><th>Angka Meteran</th><th>Gambar</th><th>Aksi</th>
+            </tr></thead>
+            <tbody>
+            {% for item in data %}
+                <tr>
+                    <td>{{ item.nama }}</td>
+                    <td>{{ item.alamat }}</td>
+                    <td>{{ item.tanggal }}</td>
+                    <td>{{ item.angka_meteran }}</td>
+                    <td>
+                        {% set fname = item.gambar_path.split('/')[-1].split('\\')[-1] %}
+                        <img src="{{ url_for('serve_uploaded_file', filename=fname) }}" alt="Gambar" width="100">
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-danger" onclick="hapusData('{{ item.id }}')">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="6" class="text-center">Tidak ada data</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Export + Cetak Struk -->
+        <form action="{{ url_for('export_csv') }}" class="mb-3 d-inline">
+            <button class="btn btn-primary"><i class="fas fa-file-csv me-2"></i>Export CSV</button>
+        </form>
+        <form action="{{ url_for('export_pdf') }}" class="d-inline ms-2">
+            <button class="btn btn-danger"><i class="fas fa-file-pdf me-2"></i>Export PDF</button>
+        </form>
+        <button class="btn btn-secondary ms-2" data-bs-toggle="modal" data-bs-target="#strukModal">
+            <i class="fas fa-print me-2"></i>Cetak Struk
+        </button>
+    </div></div>
+</div> <!-- /container -->
+
+<!-- =================== Modal Konfirmasi Hapus =================== -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow-lg">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title"><i class="fas fa-exclamation-triangle me-2"></i>Konfirmasi Hapus</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">Apakah Anda yakin ingin menghapus data ini? Tindakan ini tidak dapat dibatalkan.</div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button class="btn btn-danger" id="btnConfirmDelete"><i class="fas fa-trash-alt me-2"></i>Hapus</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =================== Modal Sukses Simpan =================== -->
+<div class="modal fade" id="saveSuccessModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow-lg">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title"><i class="fas fa-check-circle me-2"></i>Data Tersimpan</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">Data berhasil disimpan ke database.</div>
+      <div class="modal-footer"><button class="btn btn-success" data-bs-dismiss="modal">Tutup</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- =================== Modal Form Struk =================== -->
+<div class="modal fade" id="strukModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content shadow-lg">
+      <div class="modal-header bg-secondary text-white">
+        <h5 class="modal-title"><i class="fas fa-print me-2"></i>Form Struk Pembayaran</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="strukFormModal">
+        <div class="modal-body">
+            <label>Nama Pelanggan</label>
+            <input class="form-control" name="nama" required />
+
+            <label class="mt-2">Meteran Lama</label>
+            <input class="form-control" type="number" name="angka_lama" required />
+
+            <label class="mt-2">Meteran Baru</label>
+            <input class="form-control" type="number" name="angka_baru" required />
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+            <button class="btn btn-primary" id="btnGenerateStruk">
+                <span class="spinner-border spinner-border-sm me-2" id="strukSpinner" style="display:none"></span>
+                Cetak Struk
+            </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- =================== Modal Sukses Struk =================== -->
+<div class="modal fade" id="strukSuccessModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow-lg">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title"><i class="fas fa-check-circle me-2"></i>Struk Berhasil Dibuat</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">Struk berhasil dibuka di tab baru.</div>
+      <div class="modal-footer"><button class="btn btn-success" data-bs-dismiss="modal">Tutup</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================  SCRIPT  ====================== -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+/* ---------- Referensi elemen ---------- */
+const uploadForm        = document.getElementById('uploadForm');
+const saveDataCard      = document.getElementById('saveDataCard');
+const angkaMeteranInput = document.getElementById('angkaMeteran');
+const gambarPathInput   = document.getElementById('gambarPath');
+const statusDiv         = document.getElementById('uploadStatus');
+const tanggalInput      = document.getElementById('tanggalInput');
+const waktuInput        = document.getElementById('waktuInput');
+const detectSpinner     = document.getElementById('detectSpinner');
+const detectText        = document.getElementById('detectText');
+const btnSave           = document.getElementById('btnSave');
+const saveSpinner       = document.getElementById('saveSpinner');
+const saveSuccessModal  = new bootstrap.Modal('#saveSuccessModal');
+const strukSuccessModal = new bootstrap.Modal('#strukSuccessModal');
+const btnGenerateStruk  = document.getElementById('btnGenerateStruk');
+const strukSpinner      = document.getElementById('strukSpinner');
+
+tanggalInput.valueAsDate = new Date();
+waktuInput.value = new Date().toTimeString().slice(0,5);
+
+/* ---------- Preview gambar ---------- */
+document.querySelector('input[type="file"]').addEventListener('change', e => {
+    const f = e.target.files[0];
+    const pc = document.getElementById('imagePreview');
+    pc.innerHTML = '';
+    if (f) {
+        const img = new Image();
+        img.src = URL.createObjectURL(f);
+        img.className = 'image-preview';
+        pc.appendChild(img);
+    }
+});
+
+/* ---------- Upload & deteksi ---------- */
+uploadForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const fd = new FormData(uploadForm);
+    statusDiv.textContent = 'Memproses gambar...';
+    detectSpinner.style.display = 'inline-block';
+    detectText.textContent = 'Memproses...';
+
+    fetch('/upload_detect', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(d => {
+            angkaMeteranInput.value   = d.detected_number;
+            gambarPathInput.value     = d.image_path;
+            saveDataCard.style.display = 'block';
+            statusDiv.textContent     = 'Deteksi berhasil!';
+            document.getElementById('hasil').textContent      = d.detected_number || '-';
+            document.getElementById('keterangan').textContent = d.note || '';
+        })
+        .catch(() => {
+            statusDiv.textContent = 'Terjadi kesalahan saat deteksi.';
+            document.getElementById('keterangan').textContent = 'Terjadi kesalahan saat deteksi.';
+        })
+        .finally(() => {
+            detectSpinner.style.display = 'none';
+            detectText.textContent = 'Deteksi Angka';
+        });
+});
+
+/* ---------- Simpan data ---------- */
+document.getElementById('saveDataForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    btnSave.disabled = true; saveSpinner.style.display = 'inline-block';
+    try {
+        const r = await fetch('/save_data', { method: 'POST', body: new FormData(e.target) });
+        const d = await r.json();
+        if (d.success) {
+            saveSuccessModal.show();
+            document.getElementById('saveSuccessModal')
+              .addEventListener('hidden.bs.modal', () => location.reload(), { once:true });
+        } else { alert('Gagal menyimpan data.'); }
+    } catch { alert('Terjadi kesalahan saat menyimpan data.'); }
+    finally { btnSave.disabled = false; saveSpinner.style.display = 'none'; }
+});
+
+/* ---------- Modal konfirmasi hapus ---------- */
+let idToDelete = null;
+function hapusData(id) {
+    idToDelete = id;
+    new bootstrap.Modal('#confirmDeleteModal').show();
+}
+document.getElementById('btnConfirmDelete').addEventListener('click', () => {
+    if (!idToDelete) return;
+    fetch('/delete_data/' + encodeURIComponent(idToDelete), { method: 'DELETE' })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                bootstrap.Modal.getInstance(document.getElementById('confirmDeleteModal')).hide();
+                alert('Data berhasil dihapus!'); location.reload();
+            } else { alert('Gagal menghapus data.'); }
+        })
+        .catch(() => alert('Terjadi kesalahan saat menghapus data.'));
+});
+
+/* ---------- Cetak struk ---------- */
+document.getElementById('strukFormModal').addEventListener('submit', async e => {
+    e.preventDefault();
+    btnGenerateStruk.disabled = true; strukSpinner.style.display = 'inline-block';
+    try {
+        const r = await fetch('/generate_struk', { method: 'POST', body: new FormData(e.target) });
+        if (!r.ok) { alert('Gagal generate struk'); return; }
+        const blob = await r.blob();
+        window.open(URL.createObjectURL(blob), '_blank');
+        bootstrap.Modal.getInstance(document.getElementById('strukModal')).hide();
+        strukSuccessModal.show();
+    } catch { alert('Terjadi kesalahan saat generate struk.'); }
+    finally { btnGenerateStruk.disabled = false; strukSpinner.style.display = 'none'; }
+});
+</script>
+</body>
+</html>
